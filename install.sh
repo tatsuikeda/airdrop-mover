@@ -68,9 +68,15 @@ mkdir -p "$DEST_DIR"
 # Stop existing service if running
 launchctl unload "$PLIST_PATH" 2>/dev/null || true
 
-# Resolve fswatch path (launchd needs absolute paths in PATH)
+# Resolve paths (launchd needs absolute paths)
 FSWATCH_DIR="$(dirname "$(command -v fswatch)")"
 BREW_PREFIX="$(brew --prefix 2>/dev/null || echo "/usr/local")"
+
+# Use brew bash if available (Apple's /bin/bash is 3.2 from 2007)
+BASH_PATH="${BREW_PREFIX}/bin/bash"
+if [[ ! -x "$BASH_PATH" ]]; then
+  BASH_PATH="/bin/bash"
+fi
 
 # Write launchd plist
 cat > "$PLIST_PATH" << EOF
@@ -82,13 +88,13 @@ cat > "$PLIST_PATH" << EOF
     <string>${PLIST_NAME}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
+        <string>${BASH_PATH}</string>
         <string>${INSTALL_DIR}/airdrop-mover.sh</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>${FSWATCH_DIR}:/usr/local/bin:${BREW_PREFIX}/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <string>${FSWATCH_DIR}:${BREW_PREFIX}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>
