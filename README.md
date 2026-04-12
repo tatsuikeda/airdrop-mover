@@ -70,7 +70,7 @@ AIRDROP_MOVER_DEST_DIR=~/Documents/AirDrop bash install.sh
 
 - Detects AirDrop files by quarantine xattr (not by file type or timing)
 - Organizes into date-stamped subfolders (`~/AirDrop/2026-04-12_14-30-05/`)
-- Deduplicates fswatch events (AirDrop fires 3 events per file)
+- Batches files arriving within 10 seconds into the same subfolder
 - Handles filename collisions (appends a counter)
 - Sends a native macOS notification on each move
 - Ignores partial downloads (.crdownload, .part, .download)

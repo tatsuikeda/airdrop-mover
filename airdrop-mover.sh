@@ -6,6 +6,9 @@
 # (identified by sharingd in the quarantine xattr)
 # and moves them to ~/AirDrop in date-stamped subfolders.
 #
+# Files arriving within 10 seconds of each other are grouped
+# into the same subfolder.
+#
 # How it works: macOS stamps every incoming file with a quarantine
 # extended attribute that includes the delivering app's bundle ID.
 # AirDrop files are delivered by sharingd. This script watches for
@@ -15,8 +18,12 @@
 
 WATCH_DIR="${AIRDROP_MOVER_WATCH_DIR:-$HOME/Downloads}"
 DEST_DIR="${AIRDROP_MOVER_DEST_DIR:-$HOME/AirDrop}"
+BATCH_WINDOW=10
 
 mkdir -p "$DEST_DIR"
+
+CURRENT_SUBFOLDER=""
+LAST_MOVE_TIME=0
 
 # fswatch -x emits one line per event with flags appended. AirDrop
 # fires multiple events per file (Created, Renamed, AttributeModified).
@@ -43,21 +50,29 @@ fswatch -x "$WATCH_DIR" | while read -r line; do
   # Check if this file came from AirDrop
   quarantine="$(xattr -p com.apple.quarantine "$file" 2>/dev/null || true)"
   if [[ "$quarantine" == *"sharingd"* ]]; then
-    subfolder="$DEST_DIR/$(date '+%Y-%m-%d_%H-%M-%S')"
-    mkdir -p "$subfolder"
+    NOW=$(date +%s)
+    ELAPSED=$(( NOW - LAST_MOVE_TIME ))
+
+    # Start a new subfolder if outside the batch window or no folder yet
+    if [[ -z "$CURRENT_SUBFOLDER" ]] || [[ $ELAPSED -gt $BATCH_WINDOW ]]; then
+      CURRENT_SUBFOLDER="$DEST_DIR/$(date '+%Y-%m-%d_%H-%M-%S')"
+      mkdir -p "$CURRENT_SUBFOLDER"
+    fi
+
+    LAST_MOVE_TIME=$NOW
 
     basename="$(basename "$file")"
-    dest="$subfolder/$basename"
+    dest="$CURRENT_SUBFOLDER/$basename"
 
     # Handle name collisions
     if [[ -e "$dest" ]]; then
       ext="${basename##*.}"
       name="${basename%.*}"
       counter=1
-      while [[ -e "$subfolder/${name} (${counter}).${ext}" ]]; do
+      while [[ -e "$CURRENT_SUBFOLDER/${name} (${counter}).${ext}" ]]; do
         ((counter++))
       done
-      dest="$subfolder/${name} (${counter}).${ext}"
+      dest="$CURRENT_SUBFOLDER/${name} (${counter}).${ext}"
     fi
 
     mv "$file" "$dest"
