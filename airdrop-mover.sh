@@ -18,6 +18,7 @@
 
 WATCH_DIR="${AIRDROP_MOVER_WATCH_DIR:-$HOME/Downloads}"
 DEST_DIR="${AIRDROP_MOVER_DEST_DIR:-$HOME/AirDrop}"
+WATCH_DIR="${WATCH_DIR%/}"
 BATCH_WINDOW=10
 
 mkdir -p "$DEST_DIR"
@@ -40,6 +41,12 @@ fswatch -x "$WATCH_DIR" | while read -r line; do
   [[ "$file" == *.crdownload ]] && continue
   [[ "$file" == *.part ]] && continue
   [[ "$file" == *.download ]] && continue
+
+  # Only act on files directly in WATCH_DIR. AirDrop drops at the top
+  # level; subfolders are user-organized and may contain old AirDrop
+  # files that would otherwise get re-moved when their xattrs change
+  # (e.g., dragging into iMessage triggers AttributeModified).
+  [[ "$(dirname "$file")" != "$WATCH_DIR" ]] && continue
 
   # Wait for the OS to finish writing and set xattrs
   sleep 1
